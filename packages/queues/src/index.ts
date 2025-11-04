@@ -1,18 +1,29 @@
-import { Queue, Worker } from "bullmq";
+import { ConnectionOptions, Queue, Worker } from "bullmq";
 import { Redis } from "ioredis";
 
-const connection = new Redis(process.env.REDIS_URI as string);
+export const connectionInstance = ({ uri }: { uri: string }) => {
+  const connection = new Redis(uri,{maxRetriesPerRequest:null});
+  return connection;
+};
 
-export const ScraperQueue = ({ queueName }: { queueName: string }) => {
-  const queue = new Queue(queueName, { connection });
+export const ScraperQueue = ({
+  queueName,
+  connect,
+}: {
+  queueName: string;
+  connect: ConnectionOptions;
+}) => {
+  const queue = new Queue(queueName, { connection: connect });
   return queue;
 };
 
 export const ScraperWorker = ({
   workerName,
   callback,
+  connect,
 }: {
   workerName: string;
+  connect: ConnectionOptions;
   callback: (params: any) => {};
 }) => {
   const worker = new Worker(
@@ -20,7 +31,7 @@ export const ScraperWorker = ({
     async (job) => {
       callback(job);
     },
-    { connection }
+    { connection: connect }
   );
   return worker;
 };

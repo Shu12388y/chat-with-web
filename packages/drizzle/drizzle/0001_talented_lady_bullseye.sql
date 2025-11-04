@@ -1,0 +1,1 @@
+ALTER TABLE "webcontent" ALTER COLUMN "content" SET DATA TYPE text;

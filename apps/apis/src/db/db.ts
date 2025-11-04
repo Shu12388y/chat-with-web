@@ -1,2 +1,9 @@
-import { drizzle } from "drizzle-orm/neon-http";
-export const db = drizzle(process.env.DATABASE_URL!);
+import {db} from "@repo/drizzle/db";
+import { ENV } from "../env/env.js";
+
+
+export const dbInstance = db({
+    uri:ENV.DATABASE_URL!
+});
+
+
