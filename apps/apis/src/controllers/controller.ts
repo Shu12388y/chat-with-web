@@ -47,6 +47,7 @@ export class Controller {
         },
       });
     } catch (error) {
+      console.log(error);
       res.status(500).json({
         message: "Internal Server Error",
       });
@@ -85,7 +86,8 @@ export class Controller {
   static async chat(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const { message } = req.body;
+      const data = req.body;
+      const { message } = data;
       if (!id) {
         res.status(404).json({ message: "JOB ID is requried" });
         return;
@@ -107,7 +109,6 @@ export class Controller {
         return;
       }
 
-
       res.setHeader("Content-Type", "text/plain; charset=utf-8");
       // res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
       res.setHeader("Transfer-Encoding", "chunked");
@@ -121,13 +122,14 @@ export class Controller {
       });
 
       for await (const chuck of response) {
-        console.log(chuck.text);
         res.write(chuck.text?.toString());
       }
       res.end();
       return;
     } catch (error) {
+      console.log(error);
       res.status(500).json({ message: "Internal Server Error" });
+      return;
     }
   }
 }

@@ -41,4 +41,15 @@ async function worker() {
   });
 }
 
-worker();
+
+function main() {
+  if (process.argv[2] == "--workers") {
+    const workers = parseInt(process.argv[3]!);
+    for (let index = 0; index < workers; index++) {
+      worker();
+    }
+  } else {
+    worker();
+  }
+}
+main()

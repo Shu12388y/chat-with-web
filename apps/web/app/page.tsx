@@ -3,9 +3,22 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MessageCircle } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import { addWebsite } from "@/handlers/handler";
+import { useRouter } from "next/navigation";
 
 export default function ChatWebsiteLanding() {
+  const router = useRouter();
   const [websiteUrl, setWebsiteUrl] = useState("");
+  const websiteURLMutation = useMutation({
+    mutationFn: addWebsite({ webUri: websiteUrl }),
+    onSuccess(data) {
+      router.push(`/chat/${data.message.jobID}`);
+    },
+    onError(error) {
+      alert(error.message.toString());
+    },
+  });
 
   return (
     <div className="min-h-screen">
@@ -39,8 +52,11 @@ export default function ChatWebsiteLanding() {
                 onChange={(e) => setWebsiteUrl(e.target.value)}
                 className="flex-1 h-14 text-lg border-2 border-gray-200 focus:border-violet-500 focus:ring-violet-500"
               />
-              <Button className="h-14 px-8 text-lg bg-linear-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-semibold shadow-lg">
-                Start Chat
+              <Button
+                onClick={() => websiteURLMutation.mutate()}
+                className="h-14 px-8 text-lg bg-linear-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-semibold shadow-lg"
+              >
+                {websiteURLMutation.isPending ? "Loading.." : "Chat"}
               </Button>
             </div>
           </div>
