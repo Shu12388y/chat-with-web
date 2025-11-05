@@ -35,13 +35,22 @@ function Page() {
       ]);
     },
     onSuccess(data) {
-      setMessages((prev) => [
-        ...prev,
-        {
+      setMessages((prev) => {
+        const copy = [...prev];
+        if (copy.length === 0) {
+          return [
+            {
+              user: "bot",
+              message: data.toString(),
+            },
+          ];
+        }
+        copy[copy.length - 1] = {
           user: "bot",
           message: data.toString(),
-        },
-      ]);
+        };
+        return copy;
+      });
     },
     onError(error) {
       console.log(error);
@@ -70,7 +79,9 @@ function Page() {
                 >
                   <div className="bg-slate-200 flex flex-row items-center gap-2 p-2 rounded-xl ">
                     {ele?.user === "user" ? <User /> : <BotIcon />}
+                    <div className={`w-60 ${ele.user == "user" ? "text-right" :"text-left"} `}>
                     {ele?.message}
+                    </div>
                   </div>
                 </div>
               </>
