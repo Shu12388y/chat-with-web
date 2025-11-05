@@ -1,6 +1,5 @@
 # Web Q&A — Turborepo Monorepo
 
-> Full-stack example: submit a website URL + question → backend queues a job (BullMQ) → scrapes site → calls AI → stores result in PostgreSQL (Drizzle) → frontend shows status and answer.
 
 This repository is designed as a **Turborepo monorepo** with two main apps and shared packages:
 
