@@ -54,14 +54,6 @@ A user submits a URL and a question from the Next.js frontend. The frontend call
 
 ---
 
-## Features
-
-* Enqueue & process background scraping + AI job using BullMQ
-* Persist tasks and results with PostgreSQL (Drizzle)
-* Frontend displays a task timeline and final AI answer
-
-
----
 
 ## Prerequisites
 
@@ -111,13 +103,6 @@ pnpm --filter @your-scope/web dev
 
 You can also create a single `pnpm dev` script that runs multiple commands in parallel.
 
----
-
-## How it works (flow)
-
-1. **Client (Next.js)** POST `/api/tasks` with `{ url, question }`.
-2. **API** inserts a `task` row (`status: queued`) and enqueues job to BullMQ (`queue.add("scrape", { taskId })`).
-3. **Worker** receives job, updates `status: processing`, scrapes website, composes prompt, calls AI API, saves answer, updates `status: completed` (or `failed`).
 
 ---
 
