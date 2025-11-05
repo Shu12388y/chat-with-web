@@ -1,135 +1,129 @@
-# Turborepo starter
+# Web Q&A — Turborepo Monorepo
 
-This Turborepo starter is maintained by the Turborepo core team.
+> Full-stack example: submit a website URL + question → backend queues a job (BullMQ) → scrapes site → calls AI → stores result in PostgreSQL (Drizzle) → frontend shows status and answer.
 
-## Using this example
+This repository is designed as a **Turborepo monorepo** with two main apps and shared packages:
 
-Run the following command:
+* `apps/web` — Next.js (React) frontend using TanStack Query (React Query) to interact with API and display streaming status/results.
+* `apps/api` — Express.js backend exposing REST endpoints, enqueueing jobs to BullMQ, providing SSE endpoints for status streaming, and interacting with PostgreSQL (Drizzle ORM).
+* `packages/*` — shared utils: types, DB schema, worker code, and API clients.
 
-```sh
-npx create-turbo@latest
+---
+
+## Architecture
+
+A user submits a URL and a question from the Next.js frontend. The frontend calls the Express API which:
+
+1. Validates input and creates a DB record (`webcontent` table) with `status = queued`.
+2. Enqueues a job into BullMQ (Redis) with the task ID.
+3. A separate worker process pulls jobs from the queue and:
+
+   * Scrapes the URL (Cheerio)
+   * Sends the scraped content + user question to an AI API (a free model or placeholder)
+   * Stores the AI response in PostgreSQL via Drizzle and updates the task status.
+
+---
+
+## Tech stack
+
+* Monorepo: Turborepo
+* Frontend: Next.js (React), TanStack Query
+* Backend: Express.js
+* Worker queue: BullMQ (Redis)
+* Scraping: Cheerio 
+* DB: PostgreSQL + Drizzle ORM
+* Worker runner: Node process (e.g., `node packages/worker`)
+
+---
+
+## Repo layout
+
+```text
+/
+├─ apps/
+│  ├─ api/          # Express backend
+│  └─ web/          # Next.js frontend
+│  └─ worker/       # worker
+├─ packages/
+│  ├─ db/           # Drizzle schema + migrations helpers
+│  ├─ types/        # TypeScript types shared across apps
+│  ├─ queue/       # Worker implementation (BullMQ job handlers)
+├─ turbo.json
+├─ package.json
+└─ README.md
 ```
 
-## What's inside?
+---
 
-This Turborepo includes the following packages/apps:
+## Features
 
-### Apps and Packages
+* Enqueue & process background scraping + AI job using BullMQ
+* Persist tasks and results with PostgreSQL (Drizzle)
+* Frontend displays a task timeline and final AI answer
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
+---
 
-### Utilities
+## Prerequisites
 
-This Turborepo has some additional tools already setup for you:
+Install locally:
 
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
+* Node.js 18+ (recommended)
+* pnpm (preferred) or npm
 
-### Build
+Optional global packages:
 
-To build all apps and packages, run the following command:
+* `turbo` CLI (if you prefer global, otherwise use pnpm scripts)
 
+---
+
+## Environment variables
+
+Create `.env` files in `apps/api` (and worker if separated). Example `.env`:
+
+```env
+# apps/api/.env
+PORT=4000
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/webqa
+REDIS_URL=redis://localhost:6379
+API_KEY=Annifdnioi
 ```
-cd my-turborepo
+---
 
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build
+Install dependencies and bootstrap the monorepo (pnpm example):
 
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build
-yarn dlx turbo build
-pnpm exec turbo build
-```
-
-You can build a specific package by using a [filter](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters):
-
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build --filter=docs
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build --filter=docs
-yarn exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
+```bash
+pnpm install
+pnpm -w turbo run build
 ```
 
-### Develop
+Run dev (API, worker, frontend):
 
-To develop all apps and packages, run the following command:
+```bash
+# Start API
+pnpm --filter @your-scope/api dev
 
-```
-cd my-turborepo
+# Start worker (in separate terminal)
+pnpm --filter @your-scope/worker dev
 
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev
-yarn exec turbo dev
-pnpm exec turbo dev
+# Start web (Next)
+pnpm --filter @your-scope/web dev
 ```
 
-You can develop a specific package by using a [filter](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters):
+You can also create a single `pnpm dev` script that runs multiple commands in parallel.
 
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev --filter=web
+---
 
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev --filter=web
-yarn exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-```
+## How it works (flow)
 
-### Remote Caching
+1. **Client (Next.js)** POST `/api/tasks` with `{ url, question }`.
+2. **API** inserts a `task` row (`status: queued`) and enqueues job to BullMQ (`queue.add("scrape", { taskId })`).
+3. **Worker** receives job, updates `status: processing`, scrapes website, composes prompt, calls AI API, saves answer, updates `status: completed` (or `failed`).
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
+---
 
-Turborepo can use a technique known as [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
 
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
+## License
 
-```
-cd my-turborepo
+MIT
 
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo login
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo login
-yarn exec turbo login
-pnpm exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-```
-# With [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation) installed (recommended)
-turbo link
-
-# Without [global `turbo`](https://turborepo.com/docs/getting-started/installation#global-installation), use your package manager
-npx turbo link
-yarn exec turbo link
-pnpm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.com/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.com/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.com/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.com/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.com/docs/reference/configuration)
-- [CLI Usage](https://turborepo.com/docs/reference/command-line-reference)
